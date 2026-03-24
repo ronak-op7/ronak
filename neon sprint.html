@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEON RUSH</title>
+    <style>
+        /* --- PRODUCTION READY STYLES --- */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; padding: 0; background: #0a0a0a;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; touch-action: none; user-select: none;
+            color: white; position: fixed; width: 100%; height: 100%;
+        }
+        canvas { display: block; image-rendering: optimizeSpeed; }
+        
+        /* --- UI SYSTEM --- */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(10, 10, 10, 0.95);
+            z-index: 10; transition: opacity 0.4s ease-out;
+            backdrop-filter: blur(10px);
+        }
+        .hidden { display: none; opacity: 0; pointer-events: none; }
+
+        /* Branding */
+        .logo-container { margin-bottom: 40px; text-align: center; }
+        .logo-title {
+            font-size: 64px; font-weight: 900; letter-spacing: -3px;
+            color: white; text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            margin: 0;
+        }
+        .logo-subtitle {
+            font-size: 18px; color: #00ffff; letter-spacing: 6px; text-transform: uppercase;
+            opacity: 0.8; margin-top: 5px;
+        }
+
+        /* Buttons */
+        button {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff; border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 18px 40px; font-size: 14px; font-weight: 700;
+            border-radius: 12px; cursor: pointer; margin: 8px;
+            transition: all 0.2s ease; width: 260px; text-transform: uppercase;
+            letter-spacing: 2px; position: relative; overflow: hidden;
+        }
+        button:active { transform: scale(0.96); background: rgba(255, 255, 255, 0.1); }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            border: none; color: white;
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
+        }
+        .btn-primary:active { transform: scale(0.96); box-shadow: 0 0 5px rgba(0, 198, 255, 0.6); }
+
+        /* Character Select */
+        .char-select { display: flex; gap: 20px; margin: 25px 0; }
+        .char-box {
+            width: 80px; height: 80px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; font-size: 40px; display: flex;
+            justify-content: center; align-items: center; cursor: pointer;
+            transition: all 0.2s; position: relative;
+        }
+        .char-box.selected {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        /* Level Grid */
+        .level-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; width: 280px; }
+        .level-btn {
+            height: 65px; background: rgba(255,255,255,0.05); color: white; font-size: 18px;
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .level-btn.locked { opacity: 0.3; pointer-events: none; }
+        .level-btn.selected { border-color: #00ffff; background: rgba(0, 255, 255, 0.15); }
+        
+        /* Instructions */
+        .info-text { color: #666; font-size: 12px; margin-top: 30px; letter-spacing: 1px; }
+        .stats-box { background: rgba(0,0,0,0.5); padding: 15px 30px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #333; }
+        .stats-box h2 { margin: 0 0 5px 0; color: #fff; }
+        .stats-box p { margin: 0; color: #aaa; }
+
+        /* Mobile Controls Overlay */
+        #mobileControls {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 5; display: none;
+        }
+        .touch-zone {
+            position: absolute; bottom: 0; height: 50%; width: 30%;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto;
+        }
+        .left-zone { left: 0; }
+        .right-zone { right: 0; }
+        
+        .touch-btn {
+            width: 100px; height: 100px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+            border: 2px solid rgba(255,255,255,0.3);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 30px; color: rgba(255,255,255,0.7);
+            transition: background 0.1s;
+        }
+        .touch-btn:active { background: radial-gradient(circle, rgba(0,255,255,0.4) 0%, rgba(255,255,255,0) 70%); border-color: #00ffff; }
+    </style>
+</head>
+<body>
+
+    <!-- SCREEN 1: MAIN MENU -->
+    <div id="menuScreen" class="screen">
+        <div class="logo-container">
+            <h1 class="logo-title">NEON RUSH</h1>
+            <div class="logo-subtitle">Premium Edition</div>
+        </div>
+        
+        <p style="color:#888; text-transform:uppercase; letter-spacing:2px; font-size:12px;">Select Agent</p>
+        <div class="char-select">
+            <div class="char-box selected" onclick="selectChar(0, this)">🦊</div>
+            <div class="char-box" onclick="selectChar(1, this)">🤖</div>
+            <div class="char-box" onclick="selectChar(2, this)">🥷</div>
+        </div>
+        
+        <button class="btn-primary" onclick="showScreen('levelScreen')">Initialize</button>
+        <p class="info-text">TAP LEFT TO SLIDE • TAP RIGHT TO JUMP</p>
+    </div>
+
+    <!-- SCREEN 2: LEVEL SELECT -->
+    <div id="levelScreen" class="screen hidden">
+        <div class="logo-subtitle" style="margin-bottom: 30px;">Select Zone</div>
+        <div class="level-grid" id="levelGrid"></div>
+        <div style="display:flex; flex-direction: column; gap: 10px;">
+            <button class="btn-primary" onclick="startGame()">Enter Sector</button>
+            <button onclick="showScreen('menuScreen')">Back</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: END SCREEN -->
+    <div id="endScreen" class="screen hidden">
+        <div id="endTitle" style="font-size: 36px; font-weight: 900; margin-bottom: 10px;">MISSION FAILED</div>
+        <div id="endDesc" class="stats-box">
+            <h2 id="coinCount">0</h2>
+            <p>Data Units Collected</p>
+        </div>
+        <button class="btn-primary" onclick="restartLevel()">Retry Sector</button>
+        <button onclick="showScreen('levelScreen')">Zone Select</button>
+        <button onclick="showScreen('menuScreen')">Main Menu</button>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- MOBILE TOUCH ZONES -->
+    <div id="mobileControls">
+        <div class="touch-zone left-zone">
+            <div class="touch-btn" id="btnSlide">⬇️</div>
+        </div>
+        <div class="touch-zone right-zone">
+            <div class="touch-btn" id="btnJump">⬆️</div>
+        </div>
+    </div>
+
+    <script>
+        // --- ENGINE SETUP ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- MOBILE DETECTION ---
+        const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            document.getElementById('mobileControls').style.display = 'block';
+            document.body.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+        }
+
+        // --- GAME STATE ---
+        let savedProgress = localStorage.getItem('neonRushPro');
+        let unlockedLevels = savedProgress ? parseInt(savedProgress) : 1;
+        const TOTAL_LEVELS = 5;
+
+        let state = {
+            screen: 'menu', selectedChar: 0, currentLevel: 0,
+            playing: false, coins: 0, frame: 0, time: 0, shake: 0
+        };
+
+        // Player Physics
+        let p = { x: 100, y: 0, w: 40, h: 60, vy: 0, grounded: false, crouching: false, jumpPower: 14 };
+        
+        // World Containers
+        let platforms = [], obstacles = [], coins = [], particles = [], bgLayers = [];
+        let levelLength = 0, camX = 0, lvlConfig = {};
+        const GRAVITY = 0.6;
+        const SPEED = 6;
+
+        // --- THEMES & SETTINGS ---
+        const LEVELS = [
+            { name: "Cyber Highway", sky: ["#0f2027", "#203a43", "#2c5364"], ground: "#2c3e50", deco: "#00ffff", obst: "#e74c3c" },
+            { name: "Neon District", sky: ["#200122", "#6f0000"], ground: "#4a235a", deco: "#f39c12", obst: "#f1c40f" },
+            { name: "Frozen Net", sky: ["#000046", "#1cb5e0"], ground: "#ecf0f1", deco: "#3498db", obst: "#e74c3c" },
+            { name: "Industrial", sky: ["#1f1c18", "#8e0e00"], ground: "#5d6d7e", deco: "#e59866", obst: "#f4d03f" },
+            { name: "The Void", sky: ["#000000", "#434343"], ground: "#111111", deco: "#ffffff", obst: "#ff0055" }
+        ];
+
+        // --- INPUT SYSTEM ---
+        const keys = { up: false, down: false };
+
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') keys.up = true;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.down = true;
+        });
+        window.addEventListener('keyup', e => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') keys.up = false;
+            if (e.code === 'ArrowDown' || e.code === 'KeyS') keys.down = false;
+        });
+
+        // Mobile Touch Logic
+        function setupTouch(id, key) {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true; });
+            btn.addEventListener('touchend', e => { e.preventDefault(); keys[key] = false; });
+            btn.addEventListener('touchcancel', e => { keys[key] = false; });
+        }
+        if (isMobile) {
+            setupTouch('btnJump', 'up');
+            setupTouch('btnSlide', 'down');
+        }
+
+        // --- LEVEL GENERATION ---
+        function generateLevel(index) {
+            platforms = []; obstacles = []; coins = []; particles = [];
+            let lvl = LEVELS[index];
+            lvlConfig = lvl;
+
+            let lastX = 0;
+            let lastY = canvas.height - 150;
+
+            while(lastX < (12000 + index * 2500)) {
+                let w = 400 + Math.random() * 400;
+                let newY = lastY + (Math.random() - 0.5) * 150;
+                if (newY > canvas.height - 50) newY = canvas.height - 50;
+                if (newY < 200) newY = 200;
+
+                // Main Platform
+                platforms.push({ x: lastX, y: newY, w: w, h: 500 });
+
+                // Decorative Background Buildings
+                if (Math.random() < 0.3) bgLayers.push({ x: lastX, y: newY, h: 200 + Math.random()*200, w: 50, type: 'bldg' });
+
+                // Gap
+                if (Math.random() < 0.3 && lastX > 1000) lastX += 180;
+
+                // Obstacles
+                if (Math.random() < 0.6) {
+                    let types = ['saw', 'block', 'laser', 'drone', 'spike_ball', 'mover'];
+                    let type = types[Math.floor(Math.random() * types.length)];
+                    obstacles.push({
+                        type: type,
+                        x: lastX + 50 + Math.random() * (w - 100),
+                        y: newY, baseY: newY,
+                        baseX: lastX + 50 + Math.random() * (w - 100),
+                        angle: 0, on: (Math.random() > 0.5), timer: Math.random()*60
+                    });
+                }
+
+                // Coins
+                if (Math.random() < 0.5) coins.push({ x: lastX + Math.random() * w, y: newY - 60, taken: false });
+                
+                lastX += w;
+                lastY = newY;
+            }
+            levelLength = lastX;
+        }
+
+        // --- PHYSICS UPDATE ---
+        function update() {
+            if (!state.playing) return;
+            state.frame++;
+            state.time++;
+            if(state.shake > 0) state.shake *= 0.9;
+
+            // Movement
+            p.x += SPEED;
+            camX = p.x - canvas.width * 0.35;
+
+            // Crouch
+            if (keys.down && p.grounded) { if (!p.crouching) { p.crouching = true; p.h = 30; p.y += 30; } }
+            else { if (p.crouching) { p.crouching = false; p.h = 60; p.y -= 30; } }
+
+            // Jump
+            if (keys.up && p.grounded && !p.crouching) { p.vy = -p.jumpPower; p.grounded = false; spawnP(p.x, p.y+p.h, '#fff'); }
+            if (!keys.up && p.vy < -5) p.vy += 0.5;
+
+            p.vy += GRAVITY;
+            p.y += p.vy;
+
+            // Ground Collision
+            p.grounded = false;
+            for (let plat of platforms) {
+                if (rectCollide(p, plat)) {
+                    if (p.vy > 0) { p.y = plat.y - p.h; p.vy = 0; p.grounded = true; }
+                }
+            }
+
+            // Obstacle Logic & Collision
+            for (let o of obstacles) {
+                // Updates
+                if (o.type === 'saw' || o.type === 'spike_ball') o.angle += 0.05;
+                if (o.type === 'laser') { if(state.frame % 80 === 0) o.on = !o.on; }
+                if (o.type === 'drone') { o.y = o.baseY - 60 + Math.sin(state.frame * 0.05) * 50; }
+                if (o.type === 'mover') { o.x = o.baseX + Math.sin(state.frame * 0.03) * 100; }
+                if (o.type === 'spike_ball') { o.y = o.baseY - 40 + Math.sin(state.frame * 0.04) * 40; }
+
+                // Hitboxes
+                let hit = false;
+                if (o.type === 'saw') hit = rectCollide(p, {x: o.x-25, y: o.y-55, w: 50, h: 50});
+                if (o.type === 'block') hit = rectCollide(p, {x: o.x, y: o.y-40, w: 50, h: 40});
+                if (o.type === 'spike_ball') hit = rectCollide(p, {x: o.x-20, y: o.y-60, w: 40, h: 40});
+                if (o.type === 'drone') hit = rectCollide(p, {x: o.x, y: o.y-20, w: 50, h: 20});
+                if (o.type === 'mover') hit = rectCollide(p, {x: o.x, y: o.y-20, w: 60, h: 20});
+                if (o.type === 'laser' && o.on) hit = rectCollide(p, {x: o.x+20, y: o.y-250, w: 10, h: 250});
+                
+                if (hit) die();
+            }
+
+            // Coins
+            for (let c of coins) {
+                if (!c.taken && dist(p.x+p.w/2, p.y+p.h/2, c.x, c.y) < 40) {
+                    c.taken = true; state.coins++; spawnP(c.x, c.y, '#ffeb3b');
+                }
+            }
+
+            if (p.y > canvas.height) die();
+            if (p.x > levelLength) win();
+            
+            // Particles Update
+            particles = particles.filter(pt => { pt.x+=pt.vx; pt.y+=pt.vy; pt.l-=0.05; return pt.l > 0; });
+        }
+
+        // --- RENDER ENGINE ---
+        function draw() {
+            // Screen Shake
+            ctx.save();
+            if (state.shake > 0.5) { ctx.translate(Math.random()*state.shake, Math.random()*state.shake); }
+
+            // Sky Gradient
+            let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, lvlConfig.sky[0]);
+            grad.addColorStop(0.5, lvlConfig.sky[1] || "#000");
+            grad.addColorStop(1, lvlConfig.sky[2] || lvlConfig.sky[0]);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Far Background (Buildings)
+            ctx.fillStyle = "rgba(0,0,0,0.3)";
+            for(let i=0; i<15; i++) {
+                let bx = i*150 - (camX*0.1 % 150);
+                ctx.fillRect(bx, canvas.height-400, 80, 400);
+            }
+
+            // Mid Background (Skyline)
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            for(let i=0; i<12; i++) {
+                let bx = i*200 - (camX*0.3 % 200);
+                ctx.fillRect(bx, canvas.height-250, 120, 250);
+                // Windows
+                ctx.fillStyle = "rgba(255,255,255,0.1)";
+                ctx.fillRect(bx+10, canvas.height-240, 20, 20);
+                ctx.fillRect(bx+50, canvas.height-240, 20, 20);
+                ctx.fillStyle = "rgba(0,0,0,0.5)";
+            }
+
+            // Game World
+            ctx.save();
+            ctx.translate(-camX, 0);
+
+            // Platforms
+            for (let plat of platforms) {
+                ctx.fillStyle = lvlConfig.ground;
+                ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+                
+                // Top Surface Glow
+                ctx.fillStyle = lvlConfig.deco;
+                ctx.fillRect(plat.x, plat.y, plat.w, 2);
+                
+                // Grid Pattern
+                ctx.strokeStyle = "rgba(255,255,255,0.1)";
+                ctx.beginPath();
+                for(let i=0; i<plat.w; i+=50) {
+                    ctx.moveTo(plat.x+i, plat.y); ctx.lineTo(plat.x+i, plat.y+plat.h);
+                }
+                ctx.stroke();
+            }
+
+            // Obstacles
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = lvlConfig.obst;
+            for (let o of obstacles) {
+                ctx.fillStyle = lvlConfig.obst;
+                
+                if (o.type === 'saw') {
+                    ctx.save(); ctx.translate(o.x, o.y-40); ctx.rotate(o.angle);
+                    ctx.beginPath(); ctx.arc(0,0,30,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#fff"; ctx.fillRect(-4, -30, 8, 15);
+                    ctx.restore();
+                } 
+                else if (o.type === 'spike_ball') {
+                    ctx.save(); ctx.translate(o.x, o.y-50); ctx.rotate(o.angle);
+                    ctx.beginPath(); ctx.arc(0,0,25,0,Math.PI*2); ctx.fill();
+                    ctx.fillStyle = "#fff";
+                    for(let i=0; i<6; i++) { ctx.rotate(Math.PI/3); ctx.fillRect(-3, -25, 6, 10); }
+                    ctx.restore();
+                }
+                else if (o.type === 'block') {
+                    ctx.fillRect(o.x, o.y-40, 50, 40);
+                    ctx.fillStyle = "rgba(0,0,0,0.2)"; ctx.fillRect(o.x+5, o.y-35, 40, 5);
+                }
+                else if (o.type === 'drone') {
+                    ctx.fillRect(o.x, o.y-15, 50, 15);
+                    ctx.fillRect(o.x+20, o.y-15, 10, -30); 
+                }
+                else if (o.type === 'mover') {
+                    ctx.fillRect(o.x, o.y-20, 60, 20);
+                }
+                else if (o.type === 'laser') {
+                    ctx.fillStyle = "#555"; ctx.fillRect(o.x, o.y-250, 50, 250);
+                    if (o.on) {
+                        ctx.fillStyle = lvlConfig.obst;
+                        ctx.shadowBlur = 30;
+                        ctx.fillRect(o.x+20, o.y-250, 10, 250);
+                    }
+                }
+            }
+            ctx.shadowBlur = 0;
+
+            // Coins
+            ctx.shadowBlur = 20; ctx.shadowColor = "#f1c40f";
+            ctx.fillStyle = "#f1c40f";
+            for (let c of coins) if(!c.taken) { ctx.beginPath(); ctx.arc(c.x, c.y, 12, 0, Math.PI*2); ctx.fill(); }
+            ctx.shadowBlur = 0;
+
+            // Player
+            drawPlayer();
+
+            // Particles
+            for (let pt of particles) {
+                ctx.fillStyle = pt.c;
+                ctx.globalAlpha = pt.l;
+                ctx.fillRect(pt.x, pt.y, 6, 6);
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.restore(); // End World Translate
+            ctx.restore(); // End Screen Shake
+
+            // HUD
+            ctx.fillStyle = "white"; ctx.font = "bold 20px Arial";
+            ctx.fillText(`${lvlConfig.name}`, 20, 30);
+            ctx.fillStyle = "#f1c40f";
+            ctx.fillText(`⬤ ${state.coins}`, canvas.width - 80, 30);
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(p.x + p.w/2, p.y + p.h/2);
+            
+            // Shadow
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            ctx.beginPath(); ctx.ellipse(0, p.h/2, 22, 5, 0, 0, Math.PI*2); ctx.fill();
+
+            // Core Glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#00ffff";
+            ctx.fillStyle = "#00ffff";
+            ctx.fillRect(-17, -22, 34, 37); // Glow border
+
+            // Body Skin
+            let skin = ["#ffcc80", "#90a4ae", "#37474f"][state.selectedChar];
+            ctx.fillStyle = skin;
+            ctx.shadowBlur = 0;
+            
+            if (p.crouching) {
+                ctx.fillRect(-22, -12, 44, 24);
+            } else {
+                ctx.fillRect(-17, -22, 34, 37);
+                ctx.fillRect(-12, -37, 24, 20);
+                
+                // Legs
+                let legMove = Math.sin(state.time * 0.3) * 12;
+                ctx.fillRect(-12, 15, 10, 12 + legMove);
+                ctx.fillRect(5, 15, 10, 12 - legMove);
+                
+                // Visor
+                ctx.fillStyle = "#00ffff";
+                ctx.fillRect(-8, -32, 16, 6);
+            }
+            ctx.restore();
+        }
+
+        // --- UTILITIES ---
+        function rectCollide(a, b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+        function dist(x1,y1,x2,y2) { return Math.sqrt((x1-x2)**2 + (y1-y2)**2); }
+        function spawnP(x,y,c){ for(let i=0;i<7;i++) particles.push({x:x, y:y, vx:Math.random()*6-3, vy:Math.random()*6-3, l:1, c:c||'#fff'}); }
+        
+        // --- STATE MANAGEMENT ---
+        function die() { 
+            state.playing = false; state.shake = 20;
+            document.getElementById('endTitle').innerText = "CONNECTION LOST"; 
+            document.getElementById('coinCount').innerText = state.coins; 
+            showScreen('endScreen'); 
+        }
+        function win() { 
+            state.playing = false; 
+            if(state.currentLevel+1 < TOTAL_LEVELS) unlockedLevels = Math.max(unlockedLevels, state.currentLevel+2); 
+            localStorage.setItem('neonRushPro', unlockedLevels); 
+            document.getElementById('endTitle').innerText = "SECTOR CLEARED"; 
+            document.getElementById('coinCount').innerText = state.coins; 
+            showScreen('endScreen'); 
+        }
+        
+        function startGame() { 
+            state.coins=0; state.playing=true; p.x=100; p.y=200; p.vy=0; p.h=60; p.crouching=false; particles=[]; 
+            lvlConfig=LEVELS[state.currentLevel]; generateLevel(state.currentLevel); showScreen(null); 
+        }
+        function restartLevel() { startGame(); }
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            if (id) { document.getElementById(id).classList.remove('hidden'); if(id==='levelScreen') renderLevels(); }
+        }
+        function selectChar(idx, elem) { state.selectedChar=idx; document.querySelectorAll('.char-box').forEach(e=>e.classList.remove('selected')); elem.classList.add('selected'); }
+        
+        function renderLevels() {
+            const grid = document.getElementById('levelGrid');
+            grid.innerHTML = '';
+            for(let i=0; i<TOTAL_LEVELS; i++) {
+                let btn = document.createElement('button');
+                btn.innerText = i+1; btn.className = 'level-btn';
+                if(i < unlockedLevels) {
+                    if(i === state.currentLevel) btn.classList.add('selected');
+                    btn.onclick = () => { state.currentLevel = i; renderLevels(); };
+                } else { btn.classList.add('locked'); btn.innerText = '🔒'; }
+                grid.appendChild(btn);
+            }
+        }
+
+        // --- MAIN LOOP ---
+        function loop() { update(); draw(); requestAnimationFrame(loop); }
+        
+        // Init
+        lvlConfig = LEVELS[0];
+        loop();
+
+    </script>
+</body>
+</html>
